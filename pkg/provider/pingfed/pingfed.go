@@ -75,19 +75,19 @@ func (ac *Client) follow(ctx context.Context, req *http.Request) (string, error)
 	if samlResponse, ok := extractSAMLResponse(doc); ok {
 		return samlResponse, nil
 	} else if docIsLogin(doc) {
-		logger.WithField("type", "login").Debug("doc detect")
+		logger.WithField("type", "login").Debug("doc detected login")
 		handler = ac.handleLogin
 	} else if docIsOTP(doc) {
-		logger.WithField("type", "otp").Debug("doc detect")
+		logger.WithField("type", "otp").Debug("doc detected otp")
 		handler = ac.handleOTP
 	} else if docIsSwipe(doc) {
-		logger.WithField("type", "swipe").Debug("doc detect")
+		logger.WithField("type", "swipe").Debug("doc detected swipe")
 		handler = ac.handleSwipe
 	} else if docIsFormRedirect(doc) {
-		logger.WithField("type", "form-redirect").Debug("doc detect")
+		logger.WithField("type", "form-redirect").Debug("doc detected redirect")
 		handler = ac.handleFormRedirect
 	} else if docIsWebAuthn(doc) {
-		logger.WithField("type", "webauthn").Debug("doc detect")
+		logger.WithField("type", "webauthn").Debug("doc detected authn")
 		handler = ac.handleWebAuthn
 	}
 	if handler == nil {
@@ -215,7 +215,7 @@ func docIsSwipe(doc *goquery.Document) bool {
 }
 
 func docIsFormRedirect(doc *goquery.Document) bool {
-	return doc.Has("input[name=\"ppm_request\"]").Size() == 1
+	return doc.Has("input[name=\"ppm_request\"]").Size() == 1 || doc.Has("form[action=\"/saml\"]").Size() == 0
 }
 
 func docIsWebAuthn(doc *goquery.Document) bool {
@@ -223,7 +223,13 @@ func docIsWebAuthn(doc *goquery.Document) bool {
 }
 
 func extractSAMLResponse(doc *goquery.Document) (v string, ok bool) {
-	return doc.Find("input[name=\"SAMLResponse\"]").Attr("value")
+	if doc.Has("form[action=\"/saml\"]").Size() == 1 {
+		logger.Debug("(probably) final saml response found")
+		return doc.Find("input[name=\"SAMLResponse\"]").Attr("value")
+	} else {
+		logger.Debug("saml not found")
+		return "", false
+	}
 }
 
 // ensures given url is an absolute URL. if not, it will be combined with the base URL
