@@ -89,7 +89,11 @@ func (ac *Client) follow(ctx context.Context, req *http.Request) (string, error)
 	} else if docIsWebAuthn(doc) {
 		logger.WithField("type", "webauthn").Debug("doc detected authn")
 		handler = ac.handleWebAuthn
+	} else if docIsSAMLRequiredAgain(doc) {
+		logger.WithField("type", "saml-resume").Debug("doc detected saml-resume")
+		handler = ac.handleFormRedirect
 	}
+
 	if handler == nil {
 		html, _ := doc.Selection.Html()
 		logger.WithField("doc", html).Debug("Unknown document type")
@@ -215,11 +219,15 @@ func docIsSwipe(doc *goquery.Document) bool {
 }
 
 func docIsFormRedirect(doc *goquery.Document) bool {
-	return doc.Has("input[name=\"ppm_request\"]").Size() == 1 || doc.Has("form[action=\"/saml\"]").Size() == 0
+	return doc.Has("input[name=\"ppm_request\"]").Size() == 1
 }
 
 func docIsWebAuthn(doc *goquery.Document) bool {
 	return doc.Has("input[name=\"isWebAuthnSupportedByBrowser\"]").Size() == 1
+}
+
+func docIsSAMLRequiredAgain(doc *goquery.Document) bool {
+	return doc.Has("input[name=\"SAMLResponse\"]").Size() == 1
 }
 
 func extractSAMLResponse(doc *goquery.Document) (v string, ok bool) {
